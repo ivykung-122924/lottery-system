@@ -17,16 +17,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 
-const ROOT = path.resolve(process.cwd());
-const DATA_DIR = path.join(ROOT, "data", "uploads");
+const PROJECT_ROOT = path.resolve(__dirname, "..");
+const DATA_ROOT = path.resolve(process.env.DATA_ROOT || path.join(PROJECT_ROOT, "data"));
+const DATA_DIR = path.join(DATA_ROOT, "uploads");
 const LATEST_JSON = path.join(DATA_DIR, "latest.json");
-const DB_PATH = path.join(ROOT, "data", "app.sqlite");
-const PUBLIC_UPLOADS_DIR = path.join(ROOT, "public", "uploads");
+const DB_PATH = path.join(DATA_ROOT, "app.sqlite");
+const PUBLIC_UPLOADS_DIR = path.join(PROJECT_ROOT, "public", "uploads");
 const BANNER_META = path.join(PUBLIC_UPLOADS_DIR, "banner.json");
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(PUBLIC_UPLOADS_DIR, { recursive: true });
-fs.mkdirSync(path.join(ROOT, "data"), { recursive: true });
+fs.mkdirSync(DATA_ROOT, { recursive: true });
 
 app.use(express.json({ limit: "2mb" }));
 app.use(express.static(path.join(__dirname, "../public")));
@@ -619,16 +620,17 @@ app.post("/api/lookup", (req, res) => {
 });
 
 app.get("/admin", (req, res) => {
-  res.sendFile(path.join(ROOT, "public", "admin.html"));
+  res.sendFile(path.join(PROJECT_ROOT, "public", "admin.html"));
 });
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(ROOT, "public", "index.html"));
+  res.sendFile(path.join(PROJECT_ROOT, "public", "index.html"));
 });
 
 const port = process.env.PORT || 3000;
 app.listen(port, "0.0.0.0", () => {
   console.log(`Server is running on port ${port}`);
+  console.log(`Data root: ${DATA_ROOT}`);
 });
 
 
