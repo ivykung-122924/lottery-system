@@ -7,8 +7,9 @@
     "node": "18.x"
   },
   "scripts": {
-    "dev": "node server/index.js",
-    "start": "node server/index.js",
+  "dev": "node server/index.js",
+  "start": "node -e \"console.log('NODE IS RUNNING')\""
+}
     "postinstall": "npm rebuild better-sqlite3"   ← ⭐ 放這裡
   },
   "dependencies": {

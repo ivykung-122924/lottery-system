@@ -1,4 +1,4 @@
-console.log("🔥 FILE LOADED");
+console.log("🔥 FILE STARTED");
 import dotenv from "dotenv";
 import express from "express";
 import multer from "multer";
