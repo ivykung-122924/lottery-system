@@ -6,9 +6,10 @@
   "engines": {
     "node": "18.x"
   },
-  "scripts": {
+ "scripts": {
   "dev": "node server/index.js",
-  "start": "node -e \"console.log('NODE IS RUNNING')\""
+  "start": "node server/index.js"
+}
 }
     "postinstall": "npm rebuild better-sqlite3"   ← ⭐ 放這裡
   },
