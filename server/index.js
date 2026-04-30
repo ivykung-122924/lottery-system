@@ -633,10 +633,9 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(ROOT, "public", "index.html"));
 });
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(process.env.PORT, "0.0.0.0", () => {
-  console.log("server running");
+const port = process.env.PORT || 3000;
+app.listen(port, "0.0.0.0", () => {
+  console.log(`Server is running on port ${port}`);
 });
 
 
