@@ -261,6 +261,10 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/health", (req, res) => {
+  res.json({ ok: true });
+});
+
 app.post("/api/admin/upload-banner", adminAuth, uploadImage.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "NO_FILE" });
   const mime = String(req.file.mimetype || "").toLowerCase();
