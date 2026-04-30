@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config();
-
+app.use(express.static("public"));
 const app = express();
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -633,8 +633,8 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("server running on port", PORT);
+app.listen(process.env.PORT, "0.0.0.0", () => {
+  console.log("server running");
 });
 
 
