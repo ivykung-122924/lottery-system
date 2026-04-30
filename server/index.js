@@ -16,7 +16,9 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 app.use(express.static("public"));
 const app = express();
-
+app.get("/", (req, res) => {
+  res.send("Server is working 🚀");
+});
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 console.log("🔥 BEFORE app.listen");
 app.use(express.static(path.join(__dirname, "../public")));
