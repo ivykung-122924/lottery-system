@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "node server/index.js",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "postinstall": "npm rebuild better-sqlite3"   ← ⭐ 放這裡
   },
   "dependencies": {
     "better-sqlite3": "^11.2.0",
@@ -19,4 +20,3 @@
     "xlsx": "^0.18.5"
   }
 }
-
