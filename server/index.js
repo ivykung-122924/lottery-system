@@ -1,3 +1,4 @@
+console.log("🔥 ENTER server/index.js");
 import dotenv from "dotenv";
 import express from "express";
 import multer from "multer";
@@ -17,6 +18,7 @@ dotenv.config();
 const app = express();
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+console.log("🔥 BEFORE app.listen");
 app.use(express.static(path.join(__dirname, "../public")));
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 
@@ -634,4 +636,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log("server running on port", PORT);
 });
+
 
