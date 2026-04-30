@@ -1,5 +1,6 @@
-console.log("🔥 FILE STARTED");
 import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import multer from "multer";
 import { parse as parseCsv } from "csv-parse/sync";
