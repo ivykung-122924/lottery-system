@@ -1,4 +1,4 @@
-console.log("🔥 ENTER server/index.js");
+console.log("🔥 FILE LOADED");
 import dotenv from "dotenv";
 import express from "express";
 import multer from "multer";
