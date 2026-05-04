@@ -24,15 +24,18 @@ app.use(express.json());
 app.use(express.static(publicPath));
 const upload = multer({ storage: multer.memoryStorage() });
 
-// 新增：獲取資料庫中最新的上傳日期
+// 1. 【關鍵】新增：讓前端可以抓到最新日期的 API
 app.get('/api/latest-date', (req, res) => {
     try {
+        // 從資料庫抓取最大的日期
         const row = db.prepare('SELECT importDate FROM users ORDER BY importDate DESC LIMIT 1').get();
         res.json({ latestDate: row ? row.importDate : "暫無資料" });
-    } catch (err) { res.status(500).json({ error: "讀取日期失敗" }); }
+    } catch (err) { 
+        res.status(500).json({ error: "讀取日期失敗" }); 
+    }
 });
 
-// 後台日誌 API
+// 2. 後台日誌 API
 app.get('/api/admin/logs', (req, res) => {
     const password = req.headers['x-admin-password'];
     if (password !== '123456') return res.status(403).json({ error: '密碼錯誤' });
@@ -42,7 +45,7 @@ app.get('/api/admin/logs', (req, res) => {
     } catch (err) { res.status(500).json({ error: "讀取日誌失敗" }); }
 });
 
-// 前台查詢 API
+// 3. 前台查詢 API (包含你要求的自定義提示)
 app.get('/api/check', (req, res) => {
     try {
         const phone = String(req.query.phone || "").trim();
@@ -55,7 +58,7 @@ app.get('/api/check', (req, res) => {
     } catch (err) { res.status(500).json({ error: "查詢出錯" }); }
 });
 
-// 匯入 API
+// 4. 匯入功能
 app.post('/api/admin/import-replace-date', upload.single('file'), (req, res) => {
     const password = req.headers['x-admin-password'];
     if (password !== '123456') return res.status(403).json({ error: '密碼錯誤' });
