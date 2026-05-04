@@ -1,35 +1,53 @@
-<!-- 關鍵修改：在 <script> 的 s() 函數內 -->
-<script>
-async function s() {
-    // ... 前段省略 ...
-    const d = await response.json();
-    if(d.found) {
-        let tableHtml = `
-            <h3 style="color:#d63384">${d.name} 您好</h3>
-            <p>累積總抽獎次數：<b style="font-size:24px; color:#d63384">${d.totalCount}</b> 次</p>
-            <hr border="0" style="border-top:1px solid #ffdae9">
-            <p style="font-size:14px; color:#888;">抽獎資格明細：</p>
-            <table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:10px;">
-                <tr style="background:#fff0f5; color:#d63384">
-                    <th style="padding:5px; border:1px solid #eee">訂單編號</th>
-                    <th style="padding:5px; border:1px solid #eee">金額</th>
-                    <th style="padding:5px; border:1px solid #eee">日期</th>
-                    <th style="padding:5px; border:1px solid #eee">次數</th>
-                </tr>`;
-        
-        d.details.forEach(item => {
-            tableHtml += `
-                <tr>
-                    <td style="padding:5px; border:1px solid #eee">${item.orderId}</td>
-                    <td style="padding:5px; border:1px solid #eee">${item.amount}</td>
-                    <td style="padding:5px; border:1px solid #eee">${item.importDate}</td>
-                    <td style="padding:5px; border:1px solid #eee">${item.count}</td>
-                </tr>`;
-        });
-        tableHtml += `</table>`;
-        resDiv.innerHTML = tableHtml;
-    } else {
-        resDiv.innerHTML = '查無資料，請確認號碼是否正確。';
-    }
-}
-</script>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抽獎機會查詢</title>
+    <style>
+        body { font-family: sans-serif; background-color: #fff5f8; text-align: center; padding: 20px; }
+        .box { max-width: 450px; margin: 40px auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { color: #d63384; }
+        input { width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #ffdae9; border-radius: 10px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; background: #d63384; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        #res { margin-top: 25px; padding: 15px; border-radius: 10px; display: none; background: #fffafc; border: 1px solid #ffdae9; }
+        table { width: 100%; font-size: 12px; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #eee; padding: 8px; text-align: center; }
+        th { background: #fff0f5; color: #d63384; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🎁 抽獎機會查詢</h1>
+        <input type="tel" id="p" placeholder="請輸入手機號碼">
+        <button onclick="s()">立即查詢</button>
+        <div id="res"></div>
+    </div>
+    <script>
+        async function s() {
+            const v = document.getElementById('p').value.trim();
+            if(!v) return alert("請輸入手機號碼");
+            const resDiv = document.getElementById('res');
+            resDiv.style.display = 'block';
+            resDiv.innerHTML = '查詢中...';
+            try {
+                const r = await fetch('/api/check?phone=' + v);
+                const d = await r.json();
+                if(d.found) {
+                    let html = `<h3 style="color:#d63384">${d.name} 您好</h3>`;
+                    html += `<p>累積總抽獎次數：<b style="font-size:24px; color:#d63384">${d.totalCount}</b> 次</p>`;
+                    html += `<hr style="border:0; border-top:1px solid #ffdae9">`;
+                    html += `<table><tr><th>訂單編號</th><th>金額</th><th>日期</th><th>次數</th></tr>`;
+                    d.details.forEach(i => {
+                        html += `<tr><td>${i.orderId}</td><td>${i.amount}</td><td>${i.importDate}</td><td>${i.count}</td></tr>`;
+                    });
+                    html += `</table>`;
+                    resDiv.innerHTML = html;
+                } else {
+                    resDiv.innerHTML = '查無資料，請確認號碼是否正確。';
+                }
+            } catch(e) { resDiv.innerHTML = '系統繁忙中，請稍後再試'; }
+        }
+    </script>
+</body>
+</html>
