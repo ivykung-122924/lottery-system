@@ -2,77 +2,88 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理後台</title>
     <style>
-        body { font-family: sans-serif; background: #fdf2f5; padding: 20px; text-align: center; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        h2 { color: #d63384; }
-        .box { background:#fff0f5; padding:20px; border-radius:10px; margin-bottom:20px; text-align: left; }
-        button { background: #d63384; color: white; border: none; padding: 12px 15px; border-radius: 8px; cursor: pointer; margin-right: 5px; }
-        table { width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 13px; }
-        th, td { border: 1px solid #eee; padding: 10px; text-align: center; }
-        th { background: #ffdae9; color: #d63384; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #fdf2f5; padding: 20px; text-align: center; color: #333; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        h2 { color: #d63384; margin-bottom: 25px; }
+        .box { background: #fff0f5; padding: 20px; border-radius: 15px; margin-bottom: 25px; text-align: left; border: 1px solid #ffdae9; }
+        input[type="file"] { margin: 15px 0; display: block; width: 100%; }
+        button { background: #d63384; color: white; border: none; padding: 12px 20px; border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #b02a6b; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .log-list { margin-top: 20px; text-align: left; }
+        .log-item { background: #f8f9fa; border-left: 6px solid #d63384; padding: 15px; margin-bottom: 10px; border-radius: 4px; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
         #adminArea { display: none; }
     </style>
 </head>
 <body>
     <div id="loginArea" class="container">
         <h2>管理者登入</h2>
-        <input type="password" id="pw" placeholder="管理密碼" style="padding:10px;">
-        <button onclick="login()">登入</button>
+        <input type="password" id="pw" placeholder="請輸入管理密碼" style="padding:12px; width: 80%; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px;">
+        <br>
+        <button onclick="login()">進入系統</button>
     </div>
 
     <div id="adminArea" class="container">
         <h2>⚙️ 資料管理中心</h2>
         <div class="box">
-            <b>標題須含：</b> 姓名、手機、訂單編號、金額、抽獎次數
-            <br><input type="file" id="file" accept=".xlsx, .csv" style="margin: 15px 0;">
-            <div>
-                <button id="btnR" onclick="upload('replace')">⚠️ 刪除今日舊資料並匯入</button>
-                <button id="btnA" onclick="upload('append')" style="background:#6c757d;">➕ 直接追加資料</button>
+            <strong>Excel 標題格式需求：</strong><br>
+            姓名、電話、日期、訂單編號、金額
+            <input type="file" id="file" accept=".xlsx, .csv">
+            <div style="display: flex; gap: 10px;">
+                <button id="btnReplace" onclick="upload('replace')">⚠️ 覆蓋今日資料</button>
+                <button id="btnAppend" onclick="upload('append')" style="background:#6c757d;">➕ 追加匯入資料</button>
             </div>
         </div>
-        <div style="text-align: left;">
-            <h3>📊 資料清單預覽</h3>
-            <table>
-                <thead><tr><th>姓名</th><th>手機</th><th>訂單</th><th>金額</th><th>次數</th><th>日期</th></tr></thead>
-                <tbody id="listBody"></tbody>
-            </table>
+
+        <div class="log-list">
+            <h3>📅 歷史匯入日誌</h3>
+            <div id="logContent">讀取紀錄中...</div>
         </div>
     </div>
 
     <script>
         let p = "";
         function login() {
-            if(document.getElementById('pw').value === "123456") {
+            const input = document.getElementById('pw').value;
+            if(input === "123456") {
                 p = "123456";
                 document.getElementById('loginArea').style.display = 'none';
                 document.getElementById('adminArea').style.display = 'block';
-                fetchList();
+                fetchLogs();
             } else { alert("密碼錯誤"); }
         }
 
-        async function fetchList() {
+        async function fetchLogs() {
             try {
-                const res = await fetch('/api/admin/list', { headers: { 'x-admin-password': p } });
+                const res = await fetch('/api/admin/logs', { headers: { 'x-admin-password': p } });
                 const data = await res.json();
-                document.getElementById('listBody').innerHTML = data.map(i => `
-                    <tr><td>${i.name}</td><td>${i.phone}</td><td>${i.orderId}</td><td>${i.amount}</td><td>${i.count}</td><td>${i.importDate}</td></tr>
+                const container = document.getElementById('logContent');
+                if (data.length === 0) {
+                    container.innerHTML = "暫無匯入紀錄";
+                    return;
+                }
+                container.innerHTML = data.map(item => `
+                    <div class="log-item">
+                        <strong>${item.importDate}</strong> 共 <strong>${item.total}</strong> 筆 ✅ 上傳完成
+                    </div>
                 `).join('');
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error("無法讀取日誌"); }
         }
 
         async function upload(mode) {
-            const f = document.getElementById('file').files[0];
-            if(!f) return alert("請選擇檔案");
-            const btn = event.target;
-            const originalText = btn.innerText;
+            const fileInput = document.getElementById('file');
+            if(!fileInput.files[0]) return alert("請先選擇 Excel 檔案");
             
+            const btn = mode === 'replace' ? document.getElementById('btnReplace') : document.getElementById('btnAppend');
+            const originalText = btn.innerText;
             btn.innerText = "處理中...";
             btn.disabled = true;
 
             const fd = new FormData();
-            fd.append('file', f);
+            fd.append('file', fileInput.files[0]);
 
             try {
                 const res = await fetch(`/api/admin/import-replace-date?mode=${mode}`, {
@@ -81,13 +92,18 @@
                     body: fd
                 });
                 const result = await res.json();
-                alert(result.ok ? `成功匯入 ${result.inserted} 筆` : "失敗：" + result.error);
-                fetchList();
+                if(result.ok) {
+                    alert(`匯入成功！共處理 ${result.inserted} 筆資料`);
+                    fetchLogs();
+                } else {
+                    alert("匯入失敗：" + result.error);
+                }
             } catch(e) {
-                alert("連線錯誤");
+                alert("網路連線錯誤");
             } finally {
                 btn.innerText = originalText;
                 btn.disabled = false;
+                fileInput.value = "";
             }
         }
     </script>
