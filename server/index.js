@@ -6,6 +6,7 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const app = express();
 
+// 1. 路徑與資料庫初始化
 let publicPath = path.join(__dirname, 'public');
 if (!fs.existsSync(publicPath)) publicPath = path.join(__dirname, '..', 'public');
 
@@ -24,10 +25,15 @@ app.use(express.json());
 app.use(express.static(publicPath));
 const upload = multer({ storage: multer.memoryStorage() });
 
-// 1. 【關鍵】新增：讓前端可以抓到最新日期的 API
+// --- 關鍵修復：恢復健康檢查接口 ---
+// 這將解決 Railway 部署時的 "service unavailable" 錯誤
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
+// 2. 獲取最新結算日期 API
 app.get('/api/latest-date', (req, res) => {
     try {
-        // 從資料庫抓取最大的日期
         const row = db.prepare('SELECT importDate FROM users ORDER BY importDate DESC LIMIT 1').get();
         res.json({ latestDate: row ? row.importDate : "暫無資料" });
     } catch (err) { 
@@ -35,7 +41,7 @@ app.get('/api/latest-date', (req, res) => {
     }
 });
 
-// 2. 後台日誌 API
+// 3. 後台日誌 API
 app.get('/api/admin/logs', (req, res) => {
     const password = req.headers['x-admin-password'];
     if (password !== '123456') return res.status(403).json({ error: '密碼錯誤' });
@@ -45,7 +51,7 @@ app.get('/api/admin/logs', (req, res) => {
     } catch (err) { res.status(500).json({ error: "讀取日誌失敗" }); }
 });
 
-// 3. 前台查詢 API (包含你要求的自定義提示)
+// 4. 前台查詢 API
 app.get('/api/check', (req, res) => {
     try {
         const phone = String(req.query.phone || "").trim();
@@ -58,7 +64,7 @@ app.get('/api/check', (req, res) => {
     } catch (err) { res.status(500).json({ error: "查詢出錯" }); }
 });
 
-// 4. 匯入功能
+// 5. 後台匯入 API
 app.post('/api/admin/import-replace-date', upload.single('file'), (req, res) => {
     const password = req.headers['x-admin-password'];
     if (password !== '123456') return res.status(403).json({ error: '密碼錯誤' });
@@ -90,6 +96,12 @@ app.post('/api/admin/import-replace-date', upload.single('file'), (req, res) => 
     } catch (err) { res.status(500).json({ error: "匯入失敗" }); }
 });
 
+// 6. 頁面路由
 app.get('/admin', (req, res) => res.sendFile(path.join(publicPath, 'admin.html')));
 app.get('/', (req, res) => res.sendFile(path.join(publicPath, 'index.html')));
-app.listen(process.env.PORT || 3000, "0.0.0.0");
+
+// 7. 啟動伺服器
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server is running on port ${PORT}`);
+});
