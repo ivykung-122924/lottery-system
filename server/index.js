@@ -3,12 +3,11 @@ const path = require('path');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const Database = require('better-sqlite3');
+const fs = require('fs');
 const app = express();
 
-// 1. 自動偵測公用資料夾路徑 (解決 /app/server/public 找不到的問題)
-// 優先找當前目錄下的 public，找不到就找父目錄下的 public
+// 1. 自動偵測公用資料夾路徑 (解決 Railway 路徑層級問題)
 let publicPath = path.join(__dirname, 'public');
-const fs = require('fs');
 if (!fs.existsSync(publicPath)) {
     publicPath = path.join(__dirname, '..', 'public');
 }
@@ -34,10 +33,11 @@ app.get('/health', (req, res) => res.status(200).send('OK'));
 
 // --- 路由設定 ---
 
-// 前台查詢 API
+// 【前台】查詢 API
 app.get('/api/check', (req, res) => {
     const phone = req.query.phone;
     if (!phone) return res.json({ found: false });
+    // 統計同個電話的所有抽獎次數
     const row = db.prepare('SELECT name, SUM(count) as total FROM users WHERE phone = ?').get(phone);
     if (row && row.name) {
         res.json({ found: true, name: row.name, count: row.total });
@@ -46,9 +46,19 @@ app.get('/api/check', (req, res) => {
     }
 });
 
-// 後台 Excel 匯入 API
+// 【後台】讀取最新 50 筆資料
+app.get('/api/admin/list', (req, res) => {
+    const password = req.headers['x-admin-password'];
+    if (password !== '123456') return res.status(403).json({ error: '密碼錯誤' });
+    const rows = db.prepare('SELECT * FROM users ORDER BY id DESC LIMIT 50').all();
+    res.json(rows);
+});
+
+// 【後台】匯入 Excel API (支援追加/替換)
 app.post('/api/admin/import-replace-date', upload.single('file'), (req, res) => {
     const password = req.headers['x-admin-password'];
+    const mode = req.query.mode || 'append'; // 預設為追加模式
+    
     if (password !== '123456') return res.status(403).json({ error: '密碼錯誤' });
     if (!req.file) return res.status(400).json({ error: '未上傳檔案' });
 
@@ -57,30 +67,47 @@ app.post('/api/admin/import-replace-date', upload.single('file'), (req, res) => 
         const sheetName = workbook.SheetNames[0];
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        const deleteStmt = db.prepare('DELETE FROM users');
-        const insertStmt = db.prepare('INSERT INTO users (name, phone, count, importDate) VALUES (?, ?, ?, ?)');
         const today = new Date().toISOString().split('T')[0];
-        
-        const transaction = db.transaction((rows) => {
-            deleteStmt.run();
+        const deleteTodayStmt = db.prepare('DELETE FROM users WHERE importDate = ?');
+        const insertStmt = db.prepare('INSERT INTO users (name, phone, count, importDate) VALUES (?, ?, ?, ?)');
+
+        // 使用事務處理確保效能與穩定性
+        const runImport = db.transaction((rows) => {
+            if (mode === 'replace') {
+                deleteTodayStmt.run(today); // 替換模式：先刪除今日舊資料
+            }
+            
             for (const row of rows) {
-                insertStmt.run(row.姓名, String(row.手機), row.抽獎次數 || 1, today);
+                const name = row.姓名 || row.Name || row.name;
+                let phone = row.手機 || row.Phone || row.phone || row.電話;
+                const count = parseInt(row.抽獎次數 || row.count || 1);
+
+                if (name && phone) {
+                    phone = String(phone).trim();
+                    // 自動補 0 邏輯
+                    if (phone.length === 9 && phone.startsWith('9')) {
+                        phone = '0' + phone;
+                    }
+                    insertStmt.run(name, phone, count, today);
+                }
             }
         });
 
-        transaction(data);
+        runImport(data);
         res.json({ ok: true, inserted: data.length });
     } catch (err) {
+        console.error('匯入出錯:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// 強制指向正確的 HTML 檔案位置
+// 強制指向 HTML 檔案
 app.get('/admin', (req, res) => res.sendFile(path.join(publicPath, 'admin.html')));
 app.get('/', (req, res) => res.sendFile(path.join(publicPath, 'index.html')));
 
 // 4. 啟動伺服器
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 伺服器成功啟動！路徑設定為: ${publicPath}`);
+    console.log(`🚀 抽獎系統已啟動！Port: ${PORT}`);
+    console.log(`📂 目前讀取路徑: ${publicPath}`);
 });
