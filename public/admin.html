@@ -2,83 +2,82 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>抽獎系統後台</title>
+    <title>管理後台</title>
     <style>
-        body { font-family: sans-serif; background: #fdf2f5; padding: 20px; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        h2 { color: #d63384; border-left: 5px solid #d63384; padding-left: 10px; }
-        .login-box { text-align: center; padding: 50px 0; }
-        .admin-content { display: none; }
-        input[type="password"], input[type="file"] { width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ffdae9; border-radius: 8px; box-sizing: border-box; }
-        button { background: #d63384; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 16px; }
-        .history { margin-top: 30px; font-size: 13px; color: #666; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+        body { font-family: sans-serif; background: #fdf2f5; padding: 20px; text-align: center; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        h2 { color: #d63384; }
+        .btn-group { margin: 20px 0; display: flex; gap: 10px; justify-content: center; }
+        button { background: #d63384; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; }
+        .btn-append { background-color: #6c757d; }
+        table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+        th, td { border: 1px solid #eee; padding: 10px; text-align: left; }
+        #adminArea { display: none; }
     </style>
 </head>
 <body>
-
-<div class="container" id="loginArea">
-    <div class="login-box">
+    <div class="container" id="loginArea">
         <h2>管理者登入</h2>
-        <input type="password" id="pwInput" placeholder="請輸入管理密碼">
-        <button onclick="checkLogin()">確認登入</button>
+        <input type="password" id="pw" placeholder="請輸入密碼">
+        <button onclick="login()">登入</button>
     </div>
-</div>
 
-<div class="container admin-content" id="adminArea">
-    <h2>資料匯入管理</h2>
-    <p>選擇 Excel (.xlsx) 或 CSV 檔案上傳：</p>
-    <input type="file" id="fileInput" accept=".xlsx, .csv">
-    <button onclick="upload('append')">直接追加資料</button>
-    <button onclick="upload('replace')" style="background:#6c757d; margin-top:10px;">刪除同日期舊資料並匯入</button>
-    
-    <div class="history">
-        <h3>最近匯入紀錄</h3>
-        <table id="historyTable">
-            <thead><tr><th>時間</th><th>檔案</th><th>筆數</th></tr></thead>
-            <tbody></tbody>
-        </table>
+    <div class="container" id="adminArea">
+        <h2>⚙️ 資料管理中心</h2>
+        <input type="file" id="file" accept=".xlsx, .csv">
+        <div class="btn-group">
+            <button onclick="upload('replace')">⚠️ 刪除今日舊資料並匯入</button>
+            <button onclick="upload('append')" class="btn-append">➕ 直接追加資料</button>
+        </div>
+        <div id="dataList">
+            <h3>最新 50 筆資料預覽</h3>
+            <table>
+                <thead><tr><th>姓名</th><th>手機</th><th>次數</th><th>日期</th></tr></thead>
+                <tbody id="userBody"></tbody>
+            </table>
+        </div>
     </div>
-</div>
 
-<script>
-    let pass = "";
-    function checkLogin() {
-        const input = document.getElementById('pwInput').value;
-        if(input === "123456") {
-            pass = input;
-            document.getElementById('loginArea').style.display = 'none';
-            document.getElementById('adminArea').style.display = 'block';
-            loadHistory();
-        } else { alert("密碼錯誤"); }
-    }
+    <script>
+        let p = "";
+        function login() {
+            const val = document.getElementById('pw').value;
+            if(val === "123456") {
+                p = val;
+                document.getElementById('loginArea').style.display = 'none';
+                document.getElementById('adminArea').style.display = 'block';
+                fetchData();
+            } else { alert("密碼錯誤"); }
+        }
 
-    async function upload(mode) {
-        const file = document.getElementById('fileInput').files[0];
-        if(!file) return alert("請選擇檔案");
-        const formData = new FormData();
-        formData.append('file', file);
-        const url = mode === 'append' ? '/api/admin/import-append' : '/api/admin/import-replace-date';
-        
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'x-admin-password': pass },
-            body: formData
-        });
-        const result = await res.json();
-        if(result.ok) { alert("成功匯入 " + result.inserted + " 筆！"); loadHistory(); }
-        else { alert("失敗：" + result.error); }
-    }
+        async function fetchData() {
+            try {
+                const res = await fetch('/api/admin/list', { headers: { 'x-admin-password': p } });
+                const users = await res.json();
+                document.getElementById('userBody').innerHTML = users.map(u => `
+                    <tr><td>${u.name}</td><td>${u.phone}</td><td>${u.count}</td><td>${u.importDate}</td></tr>
+                `).join('');
+            } catch(e) { console.error(e); }
+        }
 
-    async function loadHistory() {
-        const res = await fetch('/api/admin/import-history', { headers: { 'x-admin-password': pass } });
-        const data = await res.json();
-        document.getElementById('historyTable').querySelector('tbody').innerHTML = data.map(h => `
-            <tr><td>${h.uploadedAt}</td><td>${h.originalName}</td><td>${h.rowsInserted}</td></tr>
-        `).join('');
-    }
-</script>
+        async function upload(mode) {
+            const f = document.getElementById('file').files[0];
+            if(!f) return alert("請選擇檔案");
+            const fd = new FormData();
+            fd.append('file', f);
+            try {
+                const res = await fetch(`/api/admin/import-replace-date?mode=${mode}`, {
+                    method: 'POST',
+                    headers: { 'x-admin-password': p },
+                    body: fd
+                });
+                const result = await res.json();
+                if(result.ok) {
+                    alert(`成功！已${mode === 'replace' ? '替換' : '追加'} ${result.inserted} 筆資料`);
+                    fetchData();
+                } else { alert("錯誤：" + result.error); }
+            } catch(e) { alert("上傳失敗，請檢查網路"); }
+        }
+    </script>
 </body>
 </html>
