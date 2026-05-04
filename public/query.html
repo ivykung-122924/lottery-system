@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>中獎查詢</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #fff5f7; text-align: center; padding-top: 50px; }
+        .search-box { background: white; display: inline-block; padding: 30px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 5px; width: 200px; }
+        button { background: #ffb6c1; border: none; padding: 10px 20px; border-radius: 5px; margin-left: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔍 中獎名單查詢</h1>
+    <div class="search-box">
+        <input type="text" id="phone" placeholder="輸入手機末三碼">
+        <button onclick="search()">查詢</button>
+        <div id="result" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        async function search() {
+            const phone = document.getElementById('phone').value;
+            if(!phone) return alert('請輸入號碼');
+            const res = await fetch(`/api/query?phone=${phone}`);
+            const data = await res.json();
+            document.getElementById('result').innerHTML = data.message || '查詢中...';
+        }
+    </script>
+</body>
+</html>

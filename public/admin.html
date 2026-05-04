@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>後台管理 - 上傳資料</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+        h2 { color: #333; }
+        input[type="file"] { margin: 20px 0; }
+        button { background: #ffb6c1; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #ff99aa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>⚙️ 抽獎系統後台</h2>
+        <p>請選擇 CSV 檔案上傳中獎名單</p>
+        <form action="/api/upload" method="POST" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".csv" required>
+            <br>
+            <button type="submit">確認上傳</button>
+        </form>
+    </div>
+</body>
+</html>

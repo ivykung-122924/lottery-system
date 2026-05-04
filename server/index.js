@@ -35,7 +35,7 @@ fs.mkdirSync(PUBLIC_UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(DATA_ROOT, { recursive: true });
 
 app.use(express.json({ limit: "2mb" }));
-app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.static(path.join(PROJECT_ROOT, "public")));
 
 function normalizePhone(raw) {
   const digits = String(raw ?? "").replace(/\D/g, "");
