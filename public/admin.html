@@ -1,22 +1,87 @@
-async function upload(mode) {
-    const f = document.getElementById('file').files[0];
-    if(!f) return alert("請選擇檔案");
-    const fd = new FormData();
-    fd.append('file', f);
-    
-    try {
-        const res = await fetch(`/api/admin/import-replace-date?mode=${mode}`, {
-            method: 'POST',
-            headers: { 'x-admin-password': p },
-            body: fd
-        });
-        const result = await res.json();
-        if(result.ok) {
-            alert(`匯入完畢！\n檔案總數：${result.totalInFile} 筆\n成功存入：${result.inserted} 筆\n\n※ 如果成功存入是 0 筆，請檢查 Excel 標題是否正確！`);
-        } else {
-            alert("失敗：" + result.error);
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>管理後台</title>
+    <style>
+        body { font-family: sans-serif; background: #fdf2f5; padding: 20px; text-align: center; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        h2 { color: #d63384; }
+        .box { background:#fff0f5; padding:20px; border-radius:10px; margin-top:20px; text-align: left; }
+        input[type="file"] { margin: 15px 0; width: 100%; }
+        button { background: #d63384; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 10px; font-size: 16px; }
+        #adminArea { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container" id="loginArea">
+        <h2>管理者登入</h2>
+        <input type="password" id="pw" style="width:100%; padding:10px; box-sizing:border-box;" placeholder="管理密碼">
+        <button onclick="login()">登入</button>
+    </div>
+
+    <div class="container" id="adminArea">
+        <h2>⚙️ 資料管理中心</h2>
+        <div class="box">
+            <p style="font-size:14px; margin-top:0;"><b>Excel 標題須包含：</b><br>姓名、手機、訂單編號、金額、抽獎次數</p>
+            <input type="file" id="file" accept=".xlsx, .csv">
+            
+            <button onclick="upload('replace')">⚠️ 刪除今日舊資料並匯入</button>
+            <button onclick="upload('append')" style="background:#6c757d;">➕ 直接追加資料</button>
+        </div>
+        <p style="font-size: 12px; color: #888; margin-top: 20px;">登入密碼：123456</p>
+    </div>
+
+    <script>
+        let p = "";
+
+        function login() {
+            const val = document.getElementById('pw').value;
+            if(val === "123456") {
+                p = val;
+                document.getElementById('loginArea').style.display = 'none';
+                document.getElementById('adminArea').style.display = 'block';
+            } else {
+                alert("密碼錯誤");
+            }
         }
-    } catch(e) {
-        alert("網路錯誤，請確認 Railway 是否正常運行");
-    }
-}
+
+        async function upload(mode) {
+            const fileInput = document.getElementById('file');
+            const file = fileInput.files[0];
+            
+            if(!file) return alert("請先選擇 Excel 檔案");
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // 顯示處理中狀態
+            const originalText = event.target.innerText;
+            event.target.innerText = "上傳中...";
+            event.target.disabled = true;
+
+            try {
+                const response = await fetch(`/api/admin/import-replace-date?mode=${mode}`, {
+                    method: 'POST',
+                    headers: { 'x-admin-password': p },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if(result.ok) {
+                    alert(`✅ 匯入完畢！\n檔案總數：${result.totalInFile} 筆\n成功存入：${result.inserted} 筆\n\n※ 如果存入筆數為 0，請檢查 Excel 標題名稱！`);
+                    fileInput.value = ""; // 清空檔案選擇器
+                } else {
+                    alert("❌ 失敗：" + result.error);
+                }
+            } catch(e) {
+                alert("❌ 網路連線失敗，請檢查 Railway 是否正常運作");
+            } finally {
+                event.target.innerText = originalText;
+                event.target.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
