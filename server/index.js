@@ -23,7 +23,10 @@ app.use(express.static(path.join(__dirname, "../public")));
 app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/admin.html"));
 });
-
+// 加入健康檢查路由，讓 Railway 知道服務已啟動
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 // --- 初始化資料庫 ---
 db.exec(`
   CREATE TABLE IF NOT EXISTS entries (
