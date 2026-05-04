@@ -6,13 +6,30 @@
     <title>抽獎次數查詢</title>
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background: #fdf2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .card { background: white; padding: 40px; border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); width: 90%; max-width: 400px; text-align: center; }
+        .card { background: white; padding: 30px; border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); width: 95%; max-width: 450px; text-align: center; }
         h1 { color: #d63384; font-size: 24px; margin-bottom: 20px; }
         input { width: 100%; padding: 15px; border: 2px solid #ffdae9; border-radius: 15px; box-sizing: border-box; font-size: 16px; outline: none; margin-bottom: 20px; }
         button { width: 100%; background: #d63384; color: white; border: none; padding: 15px; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
         button:hover { background: #b02a6b; }
+        
+        /* 查詢結果區塊 */
         #result { margin-top: 25px; text-align: left; display: none; }
-        .result-item { background: #fff0f5; padding: 15px; border-radius: 12px; margin-bottom: 10px; border-left: 5px solid #d63384; }
+        
+        /* 總次數放大樣式 */
+        .total-summary { text-align: center; background: #fff0f5; padding: 20px; border-radius: 15px; margin-bottom: 20px; border: 2px dashed #d63384; }
+        .total-summary b { color: #d63384; font-size: 32px; } /* 總次數字體放大 */
+        .user-name { font-size: 18px; color: #333; margin-bottom: 5px; }
+
+        /* 一列一列的明細樣式 */
+        .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 5px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .detail-row:last-child { border-bottom: none; }
+        .col-date { color: #888; flex: 1.2; }
+        .col-order { color: #333; flex: 1.5; font-weight: 500; }
+        .col-amt { color: #d63384; flex: 1; text-align: right; }
+        .col-cnt { color: #333; flex: 0.8; text-align: right; font-weight: bold; }
+        
+        .header-row { display: flex; justify-content: space-between; padding: 5px; font-size: 12px; color: #999; border-bottom: 2px solid #ffdae9; }
+
         .latest-info { margin-top: 30px; font-size: 13px; color: #999; border-top: 1px solid #eee; padding-top: 15px; }
     </style>
 </head>
@@ -24,12 +41,10 @@
         
         <div id="result"></div>
 
-        <!-- 顯示最新日期的地方 -->
         <div class="latest-info" id="latestDateText">載入最新結算日期中...</div>
     </div>
 
     <script>
-        // 頁面加載時自動獲取最新日期
         window.onload = async () => {
             try {
                 const res = await fetch('/api/latest-date');
@@ -50,18 +65,38 @@
             resDiv.style.display = 'block';
 
             if (data.found) {
-                let html = `<div style="text-align:center; margin-bottom:15px;"><b>${data.name}</b> 您好，總共 <b>${data.totalCount}</b> 次機會</div>`;
+                // 1. 上方總覽 (字體放大)
+                let html = `
+                    <div class="total-summary">
+                        <div class="user-name">${data.name} 您好</div>
+                        累計抽獎機會<br>
+                        <b>${data.totalCount}</b> 次
+                    </div>
+                `;
+
+                // 2. 下方明細標題
+                html += `
+                    <div class="header-row">
+                        <span style="flex:1.2">日期</span>
+                        <span style="flex:1.5">訂單編號</span>
+                        <span style="flex:1;text-align:right">金額</span>
+                        <span style="flex:0.8;text-align:right">次數</span>
+                    </div>
+                `;
+
+                // 3. 一列一列的明細
                 data.details.forEach(item => {
                     html += `
-                        <div class="result-item">
-                            <small>${item.importDate}</small><br>
-                            訂單：${item.orderId}<br>
-                            金額：$${item.amount} / 抽獎數：${item.count}
+                        <div class="detail-row">
+                            <div class="col-date">${item.importDate}</div>
+                            <div class="col-order">${item.orderId}</div>
+                            <div class="col-amt">$${item.amount}</div>
+                            <div class="col-cnt">${item.count}次</div>
                         </div>`;
                 });
                 resDiv.innerHTML = html;
             } else {
-                resDiv.innerHTML = '<div style="text-align:center; color:#999;">查無資料，請確認號碼是否正確</div>';
+                resDiv.innerHTML = '<div style="text-align:center; color:#d63384; font-weight:bold; padding:20px;">查無資料，4/27起~近期無取貨！</div>';
             }
         }
     </script>
