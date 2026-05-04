@@ -6,6 +6,7 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const app = express();
 
+// 1. 路徑與資料庫初始化
 let publicPath = path.join(__dirname, 'public');
 if (!fs.existsSync(publicPath)) publicPath = path.join(__dirname, '..', 'public');
 
@@ -24,19 +25,25 @@ app.use(express.json());
 app.use(express.static(publicPath));
 const upload = multer({ storage: multer.memoryStorage() });
 
+// 2. 健康檢查
 app.get('/health', (req, res) => res.status(200).send('OK'));
 
-// 後台清單 API
-app.get('/api/admin/list', (req, res) => {
+// 3. 【後台 API】讀取匯入日誌 (按日期彙整)
+app.get('/api/admin/logs', (req, res) => {
     const password = req.headers['x-admin-password'];
     if (password !== '123456') return res.status(403).json({ error: '密碼錯誤' });
     try {
-        const rows = db.prepare('SELECT * FROM users ORDER BY id DESC LIMIT 500').all();
-        res.json(rows);
-    } catch (err) { res.status(500).json({ error: "讀取失敗" }); }
+        const logs = db.prepare(`
+            SELECT importDate, COUNT(*) as total 
+            FROM users 
+            GROUP BY importDate 
+            ORDER BY importDate DESC
+        `).all();
+        res.json(logs);
+    } catch (err) { res.status(500).json({ error: "讀取日誌失敗" }); }
 });
 
-// 前台查詢 API
+// 4. 【前台 API】查詢功能
 app.get('/api/check', (req, res) => {
     try {
         const phone = String(req.query.phone || "").trim();
@@ -49,11 +56,11 @@ app.get('/api/check', (req, res) => {
     } catch (err) { res.status(500).json({ error: "查詢出錯" }); }
 });
 
-// 核心匯入邏輯
+// 5. 【後台 API】匯入功能 (精準匹配你的 Excel 標題)
 app.post('/api/admin/import-replace-date', upload.single('file'), (req, res) => {
     const password = req.headers['x-admin-password'];
     if (password !== '123456') return res.status(403).json({ error: '密碼錯誤' });
-    if (!req.file) return res.status(400).json({ error: '請選擇檔案' });
+    if (!req.file) return res.status(400).json({ error: '未上傳檔案' });
 
     try {
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
@@ -62,49 +69,35 @@ app.post('/api/admin/import-replace-date', upload.single('file'), (req, res) => 
         let successCount = 0;
 
         const runImport = db.transaction((rows) => {
-            // 如果是替換模式，刪除今天日期的資料
             if (req.query.mode === 'replace') db.prepare('DELETE FROM users WHERE importDate = ?').run(today);
             
             const insertStmt = db.prepare('INSERT INTO users (name, phone, count, importDate, orderId, amount) VALUES (?, ?, ?, ?, ?, ?)');
             
             for (const row of rows) {
-                // 根據你提供的圖片，精準對應標題名稱
                 const name = row['姓名'];
                 let phone = String(row['電話'] || "").trim();
                 const orderId = row['訂單編號'] || "無";
                 const amount = row['金額'] || "0";
-                
-                // 如果 Excel 有日期欄位就用 Excel 的，沒有就用今天的日期
                 const importDate = row['日期'] || today;
-                
-                // 抽獎次數：預設 1 次，如果 Excel 有寫就用 Excel 的
                 const count = parseInt(row['抽獎次數'] || 1);
 
                 if (name && phone) {
-                    // 自動補 0 處理
                     if (phone.length === 9 && phone.startsWith('9')) phone = '0' + phone;
-                    
-                    insertStmt.run(
-                        String(name), 
-                        phone, 
-                        isNaN(count) ? 1 : count, 
-                        String(importDate), 
-                        String(orderId), 
-                        String(amount)
-                    );
+                    insertStmt.run(String(name), phone, isNaN(count) ? 1 : count, String(importDate), String(orderId), String(amount));
                     successCount++;
                 }
             }
         });
 
         runImport(data);
-        res.json({ ok: true, inserted: successCount, totalInFile: data.length });
+        res.json({ ok: true, inserted: successCount });
     } catch (err) {
-        console.error("匯入出錯:", err);
-        res.status(500).json({ error: "資料格式不符，請檢查 Excel 標題是否為：姓名、電話、日期、訂單編號、金額" });
+        res.status(500).json({ error: "匯入失敗，請檢查 Excel 格式" });
     }
 });
 
+// 6. 頁面路由
 app.get('/admin', (req, res) => res.sendFile(path.join(publicPath, 'admin.html')));
 app.get('/', (req, res) => res.sendFile(path.join(publicPath, 'index.html')));
+
 app.listen(process.env.PORT || 3000, "0.0.0.0");
