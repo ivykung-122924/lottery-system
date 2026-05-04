@@ -3,50 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>抽獎機會查詢</title>
+    <title>抽獎次數查詢</title>
     <style>
-        body { font-family: sans-serif; background-color: #fff5f8; text-align: center; padding: 20px; }
-        .box { max-width: 450px; margin: 40px auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        h1 { color: #d63384; }
-        input { width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #ffdae9; border-radius: 10px; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 12px; background: #d63384; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: bold; }
-        #res { margin-top: 25px; padding: 15px; border-radius: 10px; display: none; background: #fffafc; border: 1px solid #ffdae9; }
-        table { width: 100%; font-size: 12px; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #eee; padding: 8px; text-align: center; }
-        th { background: #fff0f5; color: #d63384; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #fdf2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: white; padding: 40px; border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); width: 90%; max-width: 400px; text-align: center; }
+        h1 { color: #d63384; font-size: 24px; margin-bottom: 20px; }
+        input { width: 100%; padding: 15px; border: 2px solid #ffdae9; border-radius: 15px; box-sizing: border-box; font-size: 16px; outline: none; margin-bottom: 20px; }
+        button { width: 100%; background: #d63384; color: white; border: none; padding: 15px; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #b02a6b; }
+        #result { margin-top: 25px; text-align: left; display: none; }
+        .result-item { background: #fff0f5; padding: 15px; border-radius: 12px; margin-bottom: 10px; border-left: 5px solid #d63384; }
+        .latest-info { margin-top: 30px; font-size: 13px; color: #999; border-top: 1px solid #eee; padding-top: 15px; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h1>🎁 抽獎機會查詢</h1>
-        <input type="tel" id="p" placeholder="請輸入手機號碼">
-        <button onclick="s()">立即查詢</button>
-        <div id="res"></div>
+    <div class="card">
+        <h1>🔍 抽獎資格查詢</h1>
+        <input type="text" id="phone" placeholder="輸入手機號碼 (例: 0912...)" maxlength="10">
+        <button onclick="check()">立即查詢</button>
+        
+        <div id="result"></div>
+
+        <!-- 顯示最新日期的地方 -->
+        <div class="latest-info" id="latestDateText">載入最新結算日期中...</div>
     </div>
+
     <script>
-        async function s() {
-            const v = document.getElementById('p').value.trim();
-            if(!v) return alert("請輸入手機號碼");
-            const resDiv = document.getElementById('res');
-            resDiv.style.display = 'block';
-            resDiv.innerHTML = '查詢中...';
+        // 頁面加載時自動獲取最新日期
+        window.onload = async () => {
             try {
-                const r = await fetch('/api/check?phone=' + v);
-                const d = await r.json();
-                if(d.found) {
-                    let html = `<h3 style="color:#d63384">${d.name} 您好</h3>`;
-                    html += `<p>累積總抽獎次數：<b style="font-size:24px; color:#d63384">${d.totalCount}</b> 次</p>`;
-                    html += `<hr style="border:0; border-top:1px solid #ffdae9">`;
-                    html += `<table><tr><th>訂單編號</th><th>金額</th><th>日期</th><th>次數</th></tr>`;
-                    d.details.forEach(i => {
-                        html += `<tr><td>${i.orderId}</td><td>${i.amount}</td><td>${i.importDate}</td><td>${i.count}</td></tr>`;
-                    });
-                    html += `</table>`;
-                    resDiv.innerHTML = html;
-                } else {
-                    resDiv.innerHTML = '查無資料，4/27起~近期無取貨明細！';
-                }
-            } catch(e) { resDiv.innerHTML = '系統繁忙中，請稍後再試'; }
+                const res = await fetch('/api/latest-date');
+                const data = await res.json();
+                document.getElementById('latestDateText').innerText = `最新結算訂單日期為：${data.latestDate}`;
+            } catch (e) {
+                document.getElementById('latestDateText').innerText = "";
+            }
+        };
+
+        async function check() {
+            const phone = document.getElementById('phone').value.trim();
+            if (!phone) return alert("請輸入手機號碼");
+            
+            const res = await fetch(`/api/check?phone=${phone}`);
+            const data = await res.json();
+            const resDiv = document.getElementById('result');
+            resDiv.style.display = 'block';
+
+            if (data.found) {
+                let html = `<div style="text-align:center; margin-bottom:15px;"><b>${data.name}</b> 您好，總共 <b>${data.totalCount}</b> 次機會</div>`;
+                data.details.forEach(item => {
+                    html += `
+                        <div class="result-item">
+                            <small>${item.importDate}</small><br>
+                            訂單：${item.orderId}<br>
+                            金額：$${item.amount} / 抽獎數：${item.count}
+                        </div>`;
+                });
+                resDiv.innerHTML = html;
+            } else {
+                resDiv.innerHTML = '<div style="text-align:center; color:#999;">查無資料，請確認號碼是否正確</div>';
+            }
         }
     </script>
 </body>
