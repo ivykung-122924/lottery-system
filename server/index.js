@@ -704,15 +704,11 @@ app.get("/", (req, res) => {
 const port = process.env.PORT || 3000;
 app.get('/', (req, res) => {
   res.send(`
-    <html>
-      <head><title>測試成功</title></head>
-      <body style="display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif;">
-        <div style="text-align:center;">
-          <h1>✅ 抽獎系統已成功連線！</h1>
-          <p>目前的伺服器時間是：${new Date().toLocaleString()}</p>
-        </div>
-      </body>
-    </html>
+    <div style="text-align:center; padding-top:50px; font-family: sans-serif;">
+      <h1>✅ 抽獎系統已成功連線！</h1>
+      <p>目前伺服器運作正常，準備進行開發測試。</p>
+      <p style="color: #666;">伺服器時間：${new Date().toLocaleString()}</p>
+    </div>
   `);
 });
 app.listen(port, "0.0.0.0", () => {
