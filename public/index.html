@@ -1,11 +1,103 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <title>抽獎系統 2.0</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抽獎機會查詢系統</title>
+    <style>
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: #fff5f8; margin: 0; padding: 20px; color: #444; }
+        .container { max-width: 500px; margin: 20px auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(214, 51, 132, 0.1); text-align: center; }
+        h1 { color: #d63384; margin-bottom: 25px; font-size: 24px; }
+        .input-group { margin-bottom: 20px; }
+        input { width: 100%; padding: 15px; border: 2px solid #ffdae9; border-radius: 12px; font-size: 18px; box-sizing: border-box; outline: none; text-align: center; }
+        input:focus { border-color: #d63384; }
+        button { width: 100%; padding: 15px; background: #d63384; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #b8266d; }
+        
+        #resultArea { display: none; margin-top: 30px; border-top: 2px dashed #ffdae9; padding-top: 20px; }
+        .user-info { font-size: 18px; margin-bottom: 10px; color: #d63384; font-weight: bold; }
+        .chance-card { background: #fff0f6; border-radius: 15px; padding: 20px; margin-bottom: 20px; border: 1px solid #ffdae9; }
+        .chance-count { font-size: 48px; font-weight: 900; color: #d63384; display: block; }
+        .chance-label { font-size: 16px; color: #888; }
+        
+        .list-title { text-align: left; font-size: 14px; color: #888; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; background: #fff; }
+        th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
+        th { color: #aaa; font-weight: normal; border-bottom: 2px solid #fff0f6; }
+        .no-data { padding: 40px 0; color: #999; }
+    </style>
 </head>
-<body style="text-align:center; padding-top:50px; font-family: sans-serif;">
-  <h1>✅ 抽獎系統已透過 HTML 成功連線！</h1>
-  <p>這是來自 public/index.html 的畫面</p>
+<body>
+
+<div class="container">
+    <h1>💖 抽獎機會查詢</h1>
+    
+    <div class="input-group">
+        <input type="text" id="phoneInput" placeholder="請輸入您的手機號碼" maxlength="10">
+    </div>
+    <button onclick="doSearch()">立即查詢我的機會</button>
+
+    <div id="resultArea">
+        <div id="userInfo" class="user-info"></div>
+        <div class="chance-card">
+            <span class="chance-label">您目前累積共有</span>
+            <span id="totalCount" class="chance-count">0</span>
+            <span class="chance-label">次抽獎機會</span>
+        </div>
+
+        <div class="list-title">抽獎機會明細：</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>日期</th>
+                    <th>單號</th>
+                    <th>金額</th>
+                </tr>
+            </thead>
+            <tbody id="detailList"></tbody>
+        </table>
+    </div>
+    
+    <div id="emptyArea" class="no-data" style="display:none;">
+        查無此號碼的紀錄，請確認號碼是否正確喔！
+    </div>
+</div>
+
+<script>
+    async function doSearch() {
+        const phone = document.getElementById('phoneInput').value.trim();
+        if(!phone) return alert('請輸入手機號碼');
+
+        try {
+            const res = await fetch(`/api/check?phone=${phone}`);
+            const result = await res.json();
+
+            const resultArea = document.getElementById('resultArea');
+            const emptyArea = document.getElementById('emptyArea');
+
+            if(result.found) {
+                resultArea.style.display = 'block';
+                emptyArea.style.display = 'none';
+                
+                document.getElementById('userInfo').innerText = `${result.data[0].name} 夥伴您好！`;
+                document.getElementById('totalCount').innerText = result.count;
+                
+                document.getElementById('detailList').innerHTML = result.data.map(item => `
+                    <tr>
+                        <td>${item.date}</td>
+                        <td style="font-family:monospace;">${item.orderId || '---'}</td>
+                        <td>$${item.amount}</td>
+                    </tr>
+                `).join('');
+            } else {
+                resultArea.style.display = 'none';
+                emptyArea.style.display = 'block';
+            }
+        } catch (e) {
+            alert('查詢失敗，請檢查網路連線');
+        }
+    }
+</script>
+
 </body>
 </html>
