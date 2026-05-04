@@ -697,10 +697,6 @@ app.get("/admin", (req, res) => {
   res.sendFile(path.join(PROJECT_ROOT, "public", "admin.html"));
 });
 
-app.get("/", (req, res) => {
-  res.sendFile(path.join(PROJECT_ROOT, "public", "index.html"));
-});
-
 const port = process.env.PORT || 3000;
 app.get('/', (req, res) => {
   res.send(`
