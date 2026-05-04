@@ -6,6 +6,7 @@ import multer from "multer";
 import { parse as parseCsv } from "csv-parse/sync";
 import * as XLSX from "xlsx";
 import Database from "better-sqlite3";
+import { Storage } from "@google-cloud/storage";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -24,6 +25,10 @@ const LATEST_JSON = path.join(DATA_DIR, "latest.json");
 const DB_PATH = path.join(DATA_ROOT, "app.sqlite");
 const PUBLIC_UPLOADS_DIR = path.join(PROJECT_ROOT, "public", "uploads");
 const BANNER_META = path.join(PUBLIC_UPLOADS_DIR, "banner.json");
+const GCS_BUCKET = String(process.env.GCS_BUCKET || "").trim();
+const GCS_UPLOAD_PREFIX = String(process.env.GCS_UPLOAD_PREFIX || "lottery-system").trim();
+const storage = GCS_BUCKET ? new Storage() : null;
+const gcsBucket = storage ? storage.bucket(GCS_BUCKET) : null;
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(PUBLIC_UPLOADS_DIR, { recursive: true });
@@ -56,6 +61,44 @@ function nameKey(name) {
 
 function sha256Hex(buf) {
   return crypto.createHash("sha256").update(buf).digest("hex");
+}
+
+function gcsPath(relPath) {
+  const safeRelPath = String(relPath || "").replace(/^\/+/, "");
+  const prefix = GCS_UPLOAD_PREFIX.replace(/\/+$/, "");
+  return prefix ? `${prefix}/${safeRelPath}` : safeRelPath;
+}
+
+function gcsPublicUrl(objectPath) {
+  const encoded = objectPath
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+  return `https://storage.googleapis.com/${encodeURIComponent(GCS_BUCKET)}/${encoded}`;
+}
+
+async function writeBytes(relPath, bytes, contentType) {
+  if (gcsBucket) {
+    const objectPath = gcsPath(relPath);
+    await gcsBucket.file(objectPath).save(bytes, {
+      resumable: false,
+      contentType: contentType || "application/octet-stream",
+      metadata: { cacheControl: "public, max-age=300" }
+    });
+    return {
+      storage: "gcs",
+      objectPath,
+      publicUrl: gcsPublicUrl(objectPath)
+    };
+  }
+
+  const abs = path.isAbsolute(relPath) ? relPath : path.join(PROJECT_ROOT, relPath);
+  fs.mkdirSync(path.dirname(abs), { recursive: true });
+  fs.writeFileSync(abs, bytes);
+  return {
+    storage: "local",
+    absPath: abs
+  };
 }
 
 const db = new Database(DB_PATH);
@@ -225,8 +268,13 @@ function loadLatest() {
   return JSON.parse(txt);
 }
 
-function saveLatest(payload) {
-  fs.writeFileSync(LATEST_JSON, JSON.stringify(payload, null, 2), "utf8");
+async function saveLatest(payload) {
+  const body = JSON.stringify(payload, null, 2);
+  if (gcsBucket) {
+    await writeBytes("data/latest.json", Buffer.from(body, "utf8"), "application/json; charset=utf-8");
+    return;
+  }
+  fs.writeFileSync(LATEST_JSON, body, "utf8");
 }
 
 function adminAuth(req, res, next) {
@@ -265,23 +313,39 @@ app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/api/admin/upload-banner", adminAuth, uploadImage.single("file"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "NO_FILE" });
-  const mime = String(req.file.mimetype || "").toLowerCase();
-  if (!mime.startsWith("image/")) {
-    return res.status(400).json({ error: "UNSUPPORTED_FILE", message: "請上傳圖片檔（image/*）" });
+app.post("/api/admin/upload-banner", adminAuth, uploadImage.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "NO_FILE" });
+    const mime = String(req.file.mimetype || "").toLowerCase();
+    if (!mime.startsWith("image/")) {
+      return res.status(400).json({ error: "UNSUPPORTED_FILE", message: "請上傳圖片檔（image/*）" });
+    }
+
+    const extFromName = path.extname(String(req.file.originalname || "")).toLowerCase();
+    const ext =
+      [".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(extFromName) ? extFromName : ".png";
+
+    const filename = `banner${ext}`;
+    const uploadedAt = new Date().toISOString();
+    const imageResult = await writeBytes(`uploads/${filename}`, req.file.buffer, mime || "application/octet-stream");
+    const meta = {
+      filename,
+      uploadedAt,
+      storage: imageResult.storage,
+      objectPath: imageResult.objectPath || null,
+      url: imageResult.publicUrl || `/uploads/${filename}`
+    };
+
+    if (gcsBucket) {
+      await writeBytes("uploads/banner.json", Buffer.from(JSON.stringify(meta, null, 2), "utf8"), "application/json; charset=utf-8");
+    } else {
+      fs.writeFileSync(BANNER_META, JSON.stringify(meta, null, 2), "utf8");
+    }
+
+    res.json({ ok: true, ...meta });
+  } catch (e) {
+    res.status(500).json({ error: "UPLOAD_BANNER_FAILED", message: String(e?.message || e) });
   }
-
-  const extFromName = path.extname(String(req.file.originalname || "")).toLowerCase();
-  const ext =
-    [".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(extFromName) ? extFromName : ".png";
-
-  const filename = `banner${ext}`;
-  const abs = path.join(PUBLIC_UPLOADS_DIR, filename);
-  fs.writeFileSync(abs, req.file.buffer);
-  fs.writeFileSync(BANNER_META, JSON.stringify({ filename, uploadedAt: new Date().toISOString() }, null, 2), "utf8");
-
-  res.json({ ok: true, filename });
 });
 
 function detectFormat(reqFile) {
@@ -503,7 +567,7 @@ app.post("/api/admin/import-replace-date", adminAuth, upload.single("file"), (re
   res.json({ ok: true, replacedDate: date, importedForDate: filtered.length, ...result });
 });
 
-app.post("/api/admin/upload", adminAuth, upload.single("file"), (req, res) => {
+app.post("/api/admin/upload", adminAuth, upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "NO_FILE" });
   }
@@ -540,12 +604,15 @@ app.post("/api/admin/upload", adminAuth, upload.single("file"), (req, res) => {
   }
 
   rows.sort((a, b) => a.date.localeCompare(b.date));
-  saveLatest({ uploadedAt: new Date().toISOString(), rows });
-
-  res.json({ ok: true, uploaded: rows.length, format: isXlsx ? "xlsx" : "csv" });
+  try {
+    await saveLatest({ uploadedAt: new Date().toISOString(), rows });
+    res.json({ ok: true, uploaded: rows.length, format: isXlsx ? "xlsx" : "csv" });
+  } catch (e) {
+    res.status(500).json({ error: "SAVE_FAILED", message: String(e?.message || e) });
+  }
 });
 
-app.post("/api/admin/upload-csv", adminAuth, upload.single("file"), (req, res) => {
+app.post("/api/admin/upload-csv", adminAuth, upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "NO_FILE" });
   }
@@ -566,9 +633,12 @@ app.post("/api/admin/upload-csv", adminAuth, upload.single("file"), (req, res) =
   if (errors.length) return res.status(400).json({ error: "VALIDATION_FAILED", errors });
 
   rows.sort((a, b) => a.date.localeCompare(b.date));
-  saveLatest({ uploadedAt: new Date().toISOString(), rows });
-
-  res.json({ ok: true, uploaded: rows.length });
+  try {
+    await saveLatest({ uploadedAt: new Date().toISOString(), rows });
+    res.json({ ok: true, uploaded: rows.length });
+  } catch (e) {
+    res.status(500).json({ error: "SAVE_FAILED", message: String(e?.message || e) });
+  }
 });
 
 app.post("/api/lookup", (req, res) => {
@@ -632,9 +702,25 @@ app.get("/", (req, res) => {
 });
 
 const port = process.env.PORT || 3000;
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <head><title>測試成功</title></head>
+      <body style="display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif;">
+        <div style="text-align:center;">
+          <h1>✅ 抽獎系統已成功連線！</h1>
+          <p>目前的伺服器時間是：${new Date().toLocaleString()}</p>
+        </div>
+      </body>
+    </html>
+  `);
+});
 app.listen(port, "0.0.0.0", () => {
   console.log(`Server is running on port ${port}`);
   console.log(`Data root: ${DATA_ROOT}`);
+  if (GCS_BUCKET) {
+    console.log(`GCS bucket: ${GCS_BUCKET}`);
+  }
 });
 
 
